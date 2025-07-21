@@ -1,0 +1,21 @@
+Setting up:
+	1. Copy the repository to your work folder on the Triton cluster, the notebooks and python scripts will be excecuted using sbatch commands
+	2. Run the following commands to setup the TDTR-Analysis Python environment
+		- module load mamba
+		- conda env create -f environment.yml -n TDTR-Analysis
+	3. Copy the measurement results (the .mat files) to the /data/raw directory, and the folder cotaining the probe and beam pictures to the /beam directory
+
+Running the notebooks:
+	- If you are running the notebooks on your local machine, simply change
+	  the path_to_files-variable to the path to the data on your local machine
+	- If you are using the run_notebooks.sh-script, use the command "bash run_notebooks.sh <file_name>"
+	- If you are using the run_notebooks_multiple.sh-script, use the command "bash run_notebooks_multiple.sh <file_pattern>"
+	- The above commands will overwrite the notebooks with versions that have the cells excecuted, the output file will be put into the /out subdirectory
+
+Running the Monte Carlo python script:
+	- For a single measurement, use the aluminium_nitride.sh-script with the command "bash aluminium_nitride.sh <file_name> <film_thickness> <number_of_cases>"
+	  Here <file_name> is the full path to the .mat measurement data file
+	- For a multiple measurements, use the run_ALN_multiple.sh-script with the command "bash run_ALN_multiple.sh <file_pattern> <film_thickness> <number_of_cases>"
+	- The output file will be put into the /out/<name> subdirectory, where <name> is inherited from the name of the input file
+	
+When you have submitted jobs through the slurm queuing system, use slurm q and cat ./out/<name_of_out_file> to monitor the progress of your jobs

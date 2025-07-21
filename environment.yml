@@ -11,6 +11,7 @@ dependencies:
   - flake8
   - isort
   - cupy
+  - numba
   - numpy
   - scipy
   - pandas

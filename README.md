@@ -12,13 +12,19 @@ Monte Carlo analysis script for time-domain thermoreflectance (TDTR) setup in 4t
 ├── LICENSE            <- Open-source license if one is chosen
 ├── Makefile           <- Makefile with convenience commands like `make data` or `make train`
 ├── README.md          <- The top-level README for developers using this project.
+├── instructions.txt   <- Basic instructions for using the repository
 ├── data
 │   ├── processed      <- The final, canonical data sets for modeling.
 │   └── raw            <- The original, immutable data dump.
 │
 ├── notebooks          <- Jupyter notebooks. Naming convention is a number (for ordering),
-│                         the creator's initials, and a short `-` delimited description, e.g.
-│                         `1.0-jqp-initial-data-exploration`.
+│   |                     the creator's initials, and a short `-` delimited description, e.g.
+│   |                     `1.0-jqp-initial-data-exploration`.
+|   |
+|   ├── out            <- Contains the output files of submitted batch jobs
+|   |
+│   ├── run_notebooks.sh          <- Bash script for submitting Triton batch jobs to excecute the notebooks
+│   └── run_notebooks_multiple.sh <- Bash script for running multiple notebooks based on a file pattern
 │
 ├── pyproject.toml     <- Project configuration file with package metadata for 
 │                         montecarlo_tdtr and configuration for tools like black
@@ -43,7 +49,12 @@ Monte Carlo analysis script for time-domain thermoreflectance (TDTR) setup in 4t
     ├── analysis                <- Scripts to calculate thermal properties from measurement
     │   ├── bidirectional.py
     │   └── bidirectional_gpu.py
-    └── montecarlo_aln.py
+    │
+    ├── out                     <- Contains the output files of submitted batch jobs
+    |
+    ├── aluminium_nitride.sh    <- Bash script to submit a batch job for a single file Monte Carlo analysis
+    ├── run_AlN_multiple.sh     <- Bash script to submit multiple batch jobs for the Monte Carlo analysis, based on a file pattern
+    └── montecarlo_aln.py       <- Python script for running the Monte Carlo Analysis
 ```
 
 --------
