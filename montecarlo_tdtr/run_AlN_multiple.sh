@@ -23,5 +23,5 @@ fi
 # Submit batch jobs for all matched files
 for file in "${matches[@]}"; do
   echo "$Processing $file"
-  sbatch aluminium_nitride.sh "${file##*/}" "$2" ${3:+$3}
+  sbatch aluminium_nitride.sh "$file" "$2" ${3:+$3}
 done

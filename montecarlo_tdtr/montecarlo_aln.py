@@ -54,6 +54,7 @@ def main(input_filepath, pump_radius, probe_radius,
     
     SNR = data_shift.out_phase_statistics(plot = False)
     logger.info('SNR: %.1f dB' % SNR)
+    print(prefix)
 
     #try:
     #    h = data_shift.picosecond_acoustics(

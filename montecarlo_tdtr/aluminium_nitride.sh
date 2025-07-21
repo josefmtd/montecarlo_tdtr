@@ -25,15 +25,18 @@ module load triton/2024.1-gcc cuda/12.2.1
 # Activate the python environment
 source activate TDTR-Analysis
 
+# Store the file name
+file_name="${1##*/}"
+
 # Store file path
-file="data/raw/$1"
+file="../data/raw/$file_name"
 
 # Store the name of the measurement
-name="${1%@*.mat}"
+name="${file_name%@*.mat}"
 
 # Store parameters
-pump_radius=12.5e-6
-probe_radius=11.5e-6
+pump_radius=14.5e-6
+probe_radius=11.1e-6
 frequency=6000e3
 film_thickness="$2"
 transducer_thickness=80
