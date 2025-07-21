@@ -8,12 +8,12 @@ Setting up:
 Running the notebooks:
 	- If you are running the notebooks on your local machine, simply change
 	  the path_to_files-variable to the path to the data on your local machine
-	- If you are using the run_notebooks.sh-script, use the command "bash run_notebooks.sh <file_name>"
+	- If you are using the run_notebooks.sh-script, use the command "sbatch run_notebooks.sh <file_name>"
 	- If you are using the run_notebooks_multiple.sh-script, use the command "bash run_notebooks_multiple.sh <file_pattern>"
 	- The above commands will overwrite the notebooks with versions that have the cells excecuted, the output file will be put into the /out subdirectory
 
 Running the Monte Carlo python script:
-	- For a single measurement, use the aluminium_nitride.sh-script with the command "bash aluminium_nitride.sh <file_name> <film_thickness> <number_of_cases>"
+	- For a single measurement, use the aluminium_nitride.sh-script with the command "sbatch aluminium_nitride.sh <file_name> <film_thickness> <number_of_cases>"
 	  Here <file_name> is the full path to the .mat measurement data file
 	- For a multiple measurements, use the run_ALN_multiple.sh-script with the command "bash run_ALN_multiple.sh <file_pattern> <film_thickness> <number_of_cases>"
 	- The output file will be put into the /out/<name> subdirectory, where <name> is inherited from the name of the input file
