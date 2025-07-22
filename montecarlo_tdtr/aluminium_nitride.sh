@@ -7,8 +7,8 @@
 #SBATCH -o ./out/%j.out
 
 # Check if a file name was provided
-if [ -z "$1" ] | [ -z "$2" ]; then
-  echo "Usage: $0 <file-name> <film-thickness> <number-of cases>"
+if [ -z "$1" ] | [ -z "$2" ] | [ -z "$3" ] | [ -z "$4" ]; then
+  echo "Usage: $0 <file-name> <film-thickness> <probe-radius> <pump-radius> <number-of-cases>"
   exit 1
 fi
 
@@ -35,12 +35,12 @@ file="../data/raw/$file_name"
 name="${file_name%@*.mat}"
 
 # Store parameters
-pump_radius=14.5e-6
-probe_radius=11.1e-6
+pump_radius="$4"
+probe_radius="$3"
 frequency=6000e3
 film_thickness="$2"
 transducer_thickness=80
-n_draws="${3:-256}"
+n_draws="${5:-256}"
 
 # Run the python script
 echo "Executing file $file"
