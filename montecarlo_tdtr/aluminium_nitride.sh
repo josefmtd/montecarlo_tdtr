@@ -1,14 +1,14 @@
 #!/bin/bash
-#SBATCH --time=08:00:00
+#SBATCH --time=12:00:00
 #SBATCH -c 24
-#SBATCH --mem=8G
+#SBATCH --mem=20G
 #SBATCH --gpus=1
 #SBATCH --constraint=volta
 #SBATCH -o ./out/%j.out
 
-# Check if a file name was provided
+# Check if necessary parameters were provided
 if [ -z "$1" ] | [ -z "$2" ] | [ -z "$3" ] | [ -z "$4" ]; then
-  echo "Usage: $0 <file-name> <film-thickness> <probe-radius> <pump-radius> <number-of-cases>"
+  echo "Usage: $0 <file-name> <film-thickness> <probe-radius> <pump-radius> optional: <number-of-cases> <sample-name>"
   exit 1
 fi
 
@@ -29,7 +29,7 @@ source activate TDTR-Analysis
 file_name="${1##*/}"
 
 # Store file path
-file="../data/raw/$file_name"
+file_path="../data/raw/$file_name"
 
 # Store the name of the measurement
 name="${file_name%@*.mat}"
@@ -43,10 +43,16 @@ transducer_thickness=80
 n_draws="${5:-256}"
 
 # Run the python script
-echo "Executing file $file"
-python montecarlo_aln.py "$file" $pump_radius $probe_radius $frequency $film_thickness -k 200 -t $transducer_thickness -N $n_draws -P "$name"
+echo "Executing file $file_name"
+python montecarlo_aln.py $file_path $pump_radius $probe_radius $frequency $film_thickness -k 200 -t $transducer_thickness -N $n_draws -P $name
 echo "File $1 completed at $(date)"
 
-# Rename out-file
-mv ./out/$SLURM_JOB_ID.out ./out/$name/$name-$SLURM_JOB_ID.out
-rm ./out/$SLURM_JOB_ID.out
+# Find and store the sample name by truncating the measurement name
+sample_name="${name##AlN?}"
+sample_name="${sample_name%%?S?*}"
+sample_name="${6:-sample_name}"
+
+# Rename and move out-file and folder
+mkdir -p ./out/$sample_name
+mv ./out/$name ./out/$sample_name
+mv ./out/$SLURM_JOB_ID.out ./out/$sample_name/$name/$name-$SLURM_JOB_ID.out

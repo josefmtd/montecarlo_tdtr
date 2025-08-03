@@ -8,14 +8,31 @@ Setting up:
 Running the notebooks:
 	- If you are running the notebooks on your local machine, simply change
 	  the path_to_files-variable to the path to the data on your local machine
-	- If you are using the run_notebooks.sh-script, use the command "sbatch run_notebooks.sh <file_name>"
-	- If you are using the run_notebooks_multiple.sh-script, use the command "bash run_notebooks_multiple.sh <file_pattern>"
+	- If you are using the run_notebooks.sh-script, use the command "sbatch run_notebooks.sh <file-name>"
+	- If you are using the run_notebooks_multiple.sh-script, use the command "bash run_notebooks_multiple.sh <file-pattern>"
 	- The above commands will overwrite the notebooks with versions that have the cells excecuted, the output file will be put into the /out subdirectory
+	- Note that the notebooks can utilize CUDA-gpu computation, this is preferred because it is significantly faster. 
+	  If you are using your own workstation for running the notebooks, you will need an Nvidia-gpu and might need to install the CUDA-toolkit.
+	  Alternatively, you can disable this by changing the imported bidirectional_gpu script to bidirectional_gpu, but the computation times will be significantly longer.
+	
+Analyzing the results of TDTR-measurements:
+	- For the analysis of a single TDTR-measurement use the AlN_template_single notebook, to analyze multiple measurements in the same notebook, use AlN_template_multiple.
+	- The notebooks include a beam characterization finding the radii and intensity profiles of the two beams, a plotting of the in- and out-of-phase voltages, a picosecond-acoustics analysis
+	  for finding the thickness of the aluminium transducer and a bidirectionall fitting to the ratio of the voltages optimizing for the thermal conductances of the layers and the conductivities between the layers.
+	- For each notebook, simply follow the instructions in the comments and markdown 
 
 Running the Monte Carlo python script:
-	- For a single measurement, use the aluminium_nitride.sh-script with the command "sbatch aluminium_nitride.sh <file_name> <film_thickness> <number_of_cases>"
-	  Here <file_name> is the full path to the .mat measurement data file
-	- For a multiple measurements, use the run_ALN_multiple.sh-script with the command "bash run_ALN_multiple.sh <file_pattern> <film_thickness> <number_of_cases>"
-	- The output file will be put into the /out/<name> subdirectory, where <name> is inherited from the name of the input file
+	- For a single measurement, use the aluminium_nitride.sh-script with the command "sbatch aluminium_nitride.sh <file-name> <probe-radius> <pump-radius> optional: <number-of-cases> <sample-name>"
+	  Here <file_name> is the full path to the .mat measurement data file, number-of-cases is the number of unique randomizes simulation (default 265) and sample-name is the name of the folder
+	  where the .out files are moved, as a default this is extracted from the file names by removing the sample numbers.
+	- For a multiple measurements, use the run_ALN_multiple.sh-script with the command "bash run_ALN_multiple.sh <file-name> <probe-radius> <pump-radius> optional: <number-of-cases> <sample-name>"
+	- The output file will be put into the /out/sample-name/<name> subdirectory, where <name> is inherited from the name of the input file
 	
-When you have submitted jobs through the slurm queuing system, use slurm q and cat ./out/<name_of_out_file> to monitor the progress of your jobs
+Plotting the results of multiple monte-carlo analyses:
+	- To plot multiple monte-carlo analyses use the LogFilePlotter-template notebooks, and follow the instructions in the comments and markdown
+	- Make sure the .out files of your desired measurements are in the same folder without any others, the script will plot all files in the given directory
+	
+Tips for using the slurm queuing system:
+	- When you have submitted jobs through the slurm queuing system, use slurm q and cat ./out/name_of_out_file to monitor the progress of your jobs.
+	- To cancel ongoing jobs use scancel <job-id> or scancel -u username to cancel all ongoing jobs
+	- The open-ondemand web interface for the Jupyter notebooks is a useful alternative to the sbatch-scripts, especially when troubleshooting while making modifications
