@@ -50,7 +50,7 @@ echo "File $1 completed at $(date)"
 # Find and store the sample name by truncating the measurement name
 sample_name="${name##AlN?}"
 sample_name="${sample_name%%?S?*}"
-sample_name="${6:-sample_name}"
+sample_name="${6:-$sample_name}"
 
 # Rename and move out-file and folder
 mkdir -p ./out/$sample_name

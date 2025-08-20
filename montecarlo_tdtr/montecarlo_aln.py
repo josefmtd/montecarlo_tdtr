@@ -55,13 +55,13 @@ def main(input_filepath, pump_radius, probe_radius,
     SNR = data_shift.out_phase_statistics(plot = False)
     logger.info('SNR: %.1f dB' % SNR)
 
-    #try:
-    #    h = data_shift.picosecond_acoustics(
-    #    h = thickness * 1e-9, use_ratio = True) * 1e9
-    #except:
-    #    h = thickness
+    try:
+        h = data_shift.picosecond_acoustics(
+        h = thickness * 1e-9, use_ratio = True) * 1e9
+    except:
+        h = thickness
 
-    h = 80
+    #h = 80
 
     logger.info('Thickness: %.1f nm' % h)
 

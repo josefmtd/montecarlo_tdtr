@@ -3,14 +3,14 @@ Setting up:
 	2. Run the following commands to setup the TDTR-Analysis Python environment
 		- module load mamba
 		- conda env create -f environment.yml -n TDTR-Analysis
-	3. Copy the measurement results (the .mat files) to the /data/raw directory, and the folder cotaining the probe and beam pictures to the /beam directory
+	3. Copy the measurement results (the .mat files) to the /data/raw directory, and the folder containing the probe and beam pictures to the /beam directory
 
 Running the notebooks:
 	- If you are running the notebooks on your local machine, simply change
 	  the path_to_files-variable to the path to the data on your local machine
 	- If you are using the run_notebooks.sh-script, use the command "sbatch run_notebooks.sh <file-name>"
 	- If you are using the run_notebooks_multiple.sh-script, use the command "bash run_notebooks_multiple.sh <file-pattern>"
-	- The above commands will overwrite the notebooks with versions that have the cells excecuted, the output file will be put into the /out subdirectory
+	- The above commands will overwrite the notebooks with versions that have the cells executed, the output file will be put into the /out subdirectory
 	- Note that the notebooks can utilize CUDA-gpu computation, this is preferred because it is significantly faster. 
 	  If you are using your own workstation for running the notebooks, you will need an Nvidia-gpu and might need to install the CUDA-toolkit.
 	  Alternatively, you can disable this by changing the imported bidirectional_gpu script to bidirectional_gpu, but the computation times will be significantly longer.
@@ -18,7 +18,8 @@ Running the notebooks:
 Analyzing the results of TDTR-measurements:
 	- For the analysis of a single TDTR-measurement use the AlN_template_single notebook, to analyze multiple measurements in the same notebook, use AlN_template_multiple.
 	- The notebooks include a beam characterization finding the radii and intensity profiles of the two beams, a plotting of the in- and out-of-phase voltages, a picosecond-acoustics analysis
-	  for finding the thickness of the aluminium transducer and a bidirectionall fitting to the ratio of the voltages optimizing for the thermal conductances of the layers and the conductivities between the layers.
+	  for finding the thickness of the aluminum transducer and a bidirectional fitting to the ratio of the voltages optimizing for the thermal conductances of the layers and the conductivities between the layers.
+	- To analyze data in real time, for example finding the phase shift from test measurements, use the LaserNoise-notebook
 	- For each notebook, simply follow the instructions in the comments and markdown 
 
 Running the Monte Carlo python script:
