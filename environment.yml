@@ -10,6 +10,8 @@ dependencies:
   - black
   - flake8
   - isort
+  - cuda-version=12.4
+  - cuda-cudart
   - cupy
   - numba
   - numpy
