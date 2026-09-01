@@ -12,7 +12,7 @@ Running the notebooks:
 	- If you are using the run_notebooks_multiple.sh-script, use the command "bash run_notebooks_multiple.sh <file-pattern>"
 	- The above commands will overwrite the notebooks with versions that have the cells executed, the output file will be put into the /out subdirectory
 	- Note that the notebooks can utilize CUDA-gpu computation, this is preferred because it is significantly faster. 
-	  If you are using your own workstation for running the notebooks, you will need an Nvidia-gpu and might need to install the CUDA-toolkit.
+	  If you are using your own workstation for running the notebooks, you will need an Nvidia-gpu and might need to install the CUDA-toolkit. Follow the instructions from https://docs.cupy.dev/en/stable/install.html.
 	  Alternatively, you can disable this by changing the imported bidirectional_gpu script to bidirectional_gpu, but the computation times will be significantly longer.
 	
 Analyzing the results of TDTR-measurements:
