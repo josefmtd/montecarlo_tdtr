@@ -1,6 +1,7 @@
 import numpy as np
 import scipy.optimize as optimize
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 
 class SysParam:
     def __init__(self, r_pump, r_probe, P_pump, P_probe, tau_rep = 1 / 75.8e6):
@@ -259,7 +260,7 @@ class Bidirectional:
             BTplus = B1plus
             BTminus = B1minus
         elif I_temp == Nlayers - 1:
-            BTplus = np.zeros(self.Nint, self.Nfreq)
+            BTplus = np.zeros((self.Nint, self.Nfreq))
             BTminus = BNminus
         elif I_temp < I_heat:
             _, Bplus, Bminus = self.__calculate_up_matrix(
@@ -446,7 +447,7 @@ class Bidirectional:
             sum = sum + np.sum(res)
             num = num + len(res)
 
-        return np.sqrt(sum) / num
+        return np.sqrt(sum / num)
     
     def least_squares(self, bounds = None, output_filepath = None,
                       plot = False, verbose = False):
@@ -656,15 +657,246 @@ class Bidirectional:
             Sx.append((S_Cx, S_Lx, S_hx, S_rx))
         
         return (S, Sx)
+
+    # ------------------------------------------------------------------
+    # Helper function for calculating the TDTR signal
+    # ------------------------------------------------------------------
+    def calculate_signal(self, frequency):
+        T, _ = self.surface_temperature(
+            self.tdelay_model,
+            frequency
+        )
+
+        T = np.dot(T, self.AbsProf) / np.sum(self.AbsProf)
+
+        Vin  = np.real(T)
+        Vout = np.imag(T)
+
+        Ratio = -Vin / Vout
+
+        return Vin, Vout, Ratio
     
-    def plot_sensitivity(self, S, i_C = None, i_Lambda = None, i_h = None, path_to_file_noext = None,
+    def calculate_sensitivity_var(self, percent_perturb=1.0, track_progress=False, path_to_file_noext=None):
+        """
+        Calculate TDTR sensitivity using the definition:
+
+        S_x = (dR/R) / (dx/x), R = -Vin / Vout
+
+        Parameters
+        ----------
+        percent_perturb : float
+            Percentage perturbation applied to each parameter.
+
+        path_to_file_noext : str or None
+            If provided, save the sweep data to this location as a .npz file.
+            The extension should not be included.    
+
+        Returns S, the sensitivities of -Vin/Vout to C, Lambda, h, and r_pump, 
+        and Sx, the sensitivities of Vin to C, Lambda, h, and r_pump.
+        """
+
+        dp = percent_perturb / 100.0
+
+        C0       = self.C.copy()
+        Lambda0  = self.Lambda.copy()
+        h0       = self.h.copy()
+        X_temp0  = self.X_temp
+        r_pump0  = self.r_pump
+        r_probe0 = self.r_probe
+
+        S  = []
+        Sx = []
+
+        self.tdelay_model = np.logspace(
+            np.log10(self.tdelay_min), np.log10(self.tdelay_max), 130
+        )
+        
+        for n in range(len(self.data_raw)):
+             
+            if track_progress:
+                print("\r", str(round(100*n/len(self.data_raw),1)) + "% done", end="")
+                 
+            f = self.f[n]
+
+            Vin_0, Vout_0, Ratio_0 = self.calculate_signal(f)
+
+            S_C  = np.zeros(
+                (len(self.tdelay_model), len(self.Lambda))
+            )
+            S_Cx = np.zeros_like(S_C)
+
+            S_L  = np.zeros_like(S_C)
+            S_Lx = np.zeros_like(S_C)
+
+            S_h  = np.zeros_like(S_C)
+            S_hx = np.zeros_like(S_C)
+
+            # ==============================================================
+            # Specific heat
+            # ==============================================================
+            for i in range(len(Lambda0)):
+
+                # Perturb C by +1%
+                self.C[i] = C0[i] * (1.0 + dp)
+
+                Vin_C, Vout_C, Ratio_C = self.calculate_signal(f)
+
+                # ExSiTE definition:
+                #
+                # S_C = (dR/R) / (dC/C)
+                #
+                # dC/C = dp
+                S_C[:, i] = (
+                    (Ratio_C - Ratio_0) / Ratio_0
+                ) / dp
+
+                S_Cx[:, i] = (
+                    (Vin_C - Vin_0) / Vin_0
+                ) / dp
+
+                self.C[i] = C0[i]
+
+            # ==============================================================
+            # Thermal conductivity
+            # ==============================================================
+            for i in range(len(Lambda0)):
+
+                # Perturb Lambda by +1%
+                self.Lambda[i] = Lambda0[i] * (1.0 + dp)
+
+                Vin_L, Vout_L, Ratio_L = self.calculate_signal(f)
+
+                S_L[:, i] = (
+                    (Ratio_L - Ratio_0) / Ratio_0
+                ) / dp
+
+                S_Lx[:, i] = (
+                    (Vin_L - Vin_0) / Vin_0
+                ) / dp
+
+                # Restore Lambda
+                self.Lambda[i] = Lambda0[i]
+
+            # ==============================================================
+            # Layer thickness
+            # ==============================================================
+            for i in range(len(Lambda0)):
+
+                # Perturb h by +1%
+                self.h[i] = h0[i] * (1.0 + dp)
+
+                hsum = np.cumsum(self.h)
+                I_temp = np.sum(np.ceil(hsum) / self.X_temp == 1)
+
+                if i < I_temp:
+                    self.X_temp = X_temp0 + self.h[i] - h0[i]
+                else:
+                    self.X_temp = X_temp0
+
+                Vin_h, Vout_h, Ratio_h = self.calculate_signal(f)
+
+                S_h[:, i] = (
+                    (Ratio_h - Ratio_0) / Ratio_0
+                ) / dp
+
+                S_hx[:, i] = (
+                    (Vin_h - Vin_0) / Vin_0
+                ) / dp
+
+                # Restore
+                self.h[i] = h0[i]
+                self.X_temp = X_temp0
+
+            # ==============================================================
+            # Pump radius
+            # ==============================================================
+
+            self.r_pump = r_pump0 * (1.0 + dp)
+            self.r_probe = r_probe0
+
+            Vin_r, Vout_r, Ratio_r = self.calculate_signal(f)
+
+            S_r = (
+                (Ratio_r - Ratio_0) / Ratio_0
+            ) / dp
+
+            S_rx = (
+                (Vin_r - Vin_0) / Vin_0
+            ) / dp
+
+            self.r_pump = r_pump0
+            self.r_probe = r_probe0
+
+            S.append(
+                (
+                    S_C,
+                    S_L,
+                    S_h,
+                    S_r
+                )
+            )
+
+            Sx.append(
+                (
+                    S_Cx,
+                    S_Lx,
+                    S_hx,
+                    S_rx
+                )
+            )
+
+        if track_progress: print("\r", "100% done", end="")
+        
+        self.C[:]      = C0
+        self.Lambda[:] = Lambda0
+        self.h[:]      = h0
+
+        self.X_temp    = X_temp0
+        self.r_pump    = r_pump0
+        self.r_probe   = r_probe0
+
+        if path_to_file_noext is not None:
+        
+            S_save = np.empty(len(S), dtype=object)
+            Sx_save = np.empty(len(Sx), dtype=object)
+        
+            S_save[:] = S
+            Sx_save[:] = Sx
+        
+            np.savez(
+                path_to_file_noext + ".npz",
+                S=S_save,
+                Sx=Sx_save
+            )
+
+        return S, Sx
+
+    
+    def plot_sensitivity(self, S = None, i_C = None, i_Lambda = None, i_h = None, path_to_file_noext = None,
+                         path_to_source_noext = None,
                          legend_loc = 'best'):
+
+        self.tdelay_model = np.logspace(
+            np.log10(self.tdelay_min), np.log10(self.tdelay_max), 130
+        )
+        
         for i in range(len(self.data_raw)):
             fig = plt.figure()
             ax  = fig.add_subplot(111)
             
             colors = ['red', 'blue', 'green', 'magenta', 'black', 'yellow']
 
+            if S is None:
+                if path_to_source_noext is None:
+                    raise ValueError(
+                        "Either 'S' must be provided or "
+                        "'path_to_source_noext' must point to a saved sensitivity analysis."
+                    )
+    
+                data = np.load(path_to_source_noext + ".npz", allow_pickle=True)
+                
+                S = data["S"].tolist()
+            
             for n in range(len(self.Lambda)):
                 if i_C is None or n in i_C:
                     ax.plot(self.tdelay_model * 1e12, S[i][0][:,n], 
@@ -701,3 +933,150 @@ class Bidirectional:
                 fig.savefig(path_to_file_noext + '_SENS_%d.png' %i)
             else:
                 fig.show()
+
+    def sweep_params(self,
+                 first_range,
+                 second_range,
+                 n_first=50,
+                 n_second=50,
+                 track_progress=False,
+                 path_to_file_noext=None):
+        
+        """
+        Parameters
+        ----------
+        first_range / second_range : tuple
+            (min, max) values for the two swept parameters.
+
+        n_first / n_second : int
+            Number of values in each sweep.
+
+        path_to_file_noext : str or None
+            If provided, save the sweep data to this location as a .npz file.
+            The extension should not be included.
+
+        The two swept values are taken to be the ones defined in i_Lambda/C/h, 
+        with the rest expected to be empty.     
+
+        Returns a grid with the RMSE for each parameter pair
+
+        """ 
+
+        first_values = np.linspace(first_range[0], first_range[1], n_first)
+        second_values   = np.linspace(second_range[0],   second_range[1],   n_second)
+
+        error_grid = np.zeros((n_first, n_second))
+
+        for i, second in enumerate(second_values):
+            for j, first in enumerate(first_values):
+                if track_progress:
+                    print("\r", str(round(100*(i*n_second+j)/(n_second*n_first),1)) + "% done", end="")
+                X = np.array([first, second])
+                error_grid[j, i] = self.calculate_residuals(X)
+                
+        if track_progress: print("\r", "100% done", end="")
+            
+        if path_to_file_noext is not None:
+            np.savez(
+                path_to_file_noext + ".npz",
+                first_values=first_values,
+                second_values=second_values,
+                error_grid=error_grid
+            )
+        
+        return first_values, second_values, error_grid
+
+    def plot_contours(self,
+                      first_vals=None,
+                      second_vals=None,
+                      grid=None,
+                      labels=None,
+                      path_to_file_noext=None,
+                      path_to_source_noext=None,
+                      style="PuBu",
+                      levels=50,
+                      scaling=(1, 1),
+                      threshold=None):
+
+        """
+        Parameters
+        ----------
+        first_vals / second_vals : array
+            x/y-coordinates of the grid If None, they are loaded from
+            path_to_source_noext.
+
+        grid: matrix
+            Grid values to be plotted.
+
+        labels: tuple of strings
+            Labels of the plot (colorbar, x-axis, y-axis)
+
+        scaling: tuple of floats
+            Scales the values displayed on the x- and y-axes,
+            useful when changing between units    
+
+        path_to_file_noext: string
+            Location to save the image.
+            
+        path_to_source_noext: string
+            Location for an input file for the data to be plotted.
+
+        threshold: float
+            If a value other than None is given, a red line is drawn on
+            data points corresponding to the threshold value
+
+        """ 
+
+        if grid is None:
+            if path_to_source_noext is None:
+                raise ValueError(
+                    "Either 'grid' must be provided or "
+                    "'path_to_source_noext' must point to a saved sweep."
+                )
+
+            data = np.load(path_to_source_noext + ".npz")
+            first_vals = data["first_values"]
+            second_vals = data["second_values"]
+            grid = data["error_grid"]
+
+        elif first_vals is None or second_vals is None:
+            raise ValueError(
+                "'first_vals' and 'second_vals' must be provided "
+                "when 'grid' is provided."
+                    )
+        
+        fig = plt.figure(figsize=(8, 6))
+
+        X, Y = np.meshgrid(first_vals * scaling[0], second_vals * scaling[1])
+        contour = plt.contourf(X, Y, grid, levels=levels, cmap=style)
+
+        plt.colorbar(contour, label=labels[0])
+
+        if threshold is not None:
+            plt.contour(
+                X, Y, grid,
+                levels=[threshold],
+                colors='red',
+                linewidths=2,
+            )
+        
+            threshold_handle = Line2D(
+                [0], [0],
+                color='red',
+                linewidth=2,
+                label=f"{threshold:g} RMSE threshold"
+            )
+        
+            plt.gca().legend(handles=[threshold_handle])
+        
+        plt.xlabel(labels[1])
+        plt.ylabel(labels[2])
+        plt.grid(which='major', linestyle='-')
+        plt.grid(which='minor', linestyle='--')
+
+        plt.tight_layout()
+
+        if path_to_file_noext is not None:
+            fig.savefig(path_to_file_noext + '_contour.png', dpi=200, bbox_inches='tight')
+        else:
+            plt.show()
