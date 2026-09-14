@@ -1,30 +1,37 @@
 name: montecarlo_tdtr
+
 channels:
   - conda-forge
+
 dependencies:
-  - python=3.11
+  - python=3.12
   - pip
+
+  # Core Python tools
   - typer
   - loguru
   - tqdm
   - black
   - flake8
   - isort
-  - cuda-version=12.4
-  - cuda-cudart
-  - cupy
-  - numba
+
+  # Scientific stack
   - numpy
   - scipy
   - pandas
   - seaborn
   - opencv
-  - ipython
-  - jupyterlab
+  - numba
+
+  - cuda-version=12.4
+  - cuda-cudart
+  - cupy
+  
   - pip:
-    - python-dotenv
-    - coverage
-    - Sphinx
-    - click
-    - -e .
-    - monaco
+      # Project/dev dependencies
+      - python-dotenv
+      - coverage
+      - Sphinx
+      - click
+      - monaco
+      - -e .
