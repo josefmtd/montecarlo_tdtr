@@ -4,8 +4,8 @@ import logging
 from pathlib import Path
 from dotenv import find_dotenv, load_dotenv
 
-from src.data import dataframe
-from src.analysis import bidirectional_gpu as bidirectional
+from montecarlo_tdtr.data import dataframe
+from montecarlo_tdtr.analysis import bidirectional_gpu as bidirectional
 
 import monaco as mc
 from scipy.stats import norm
@@ -40,15 +40,14 @@ def main(input_filepath, pump_radius, probe_radius,
     logger.info('Fitting values for AlN thin film')
 
     data = dataframe.Measurement(input_filepath)
-    data_shift = data.auto_phase_shift()    
-    logger.info('Data shifted by %.1f degrees' % data.phase_sol)
-    logger.info('Phase uncertainties: %.2f degrees' % data.del_phase)
+    data_shift = data.auto_phase_shift()
+
+    phase_sol = data.phase_sol
+    del_phase = data.del_phase
     
-    # r_pump, r_probe = beam.characterize_beam(
-    #     red_beam = redbeam_filepath,
-    #     blue_beam = bluebeam_filepath,
-    #     plot = False, use_center = False
-    # )
+    logger.info('Data shifted by %.1f degrees' % phase_sol)
+    logger.info('Phase uncertainties: %.2f degrees' % del_phase)
+    
     r_pump  = pump_radius
     r_probe = probe_radius
     
@@ -61,9 +60,22 @@ def main(input_filepath, pump_radius, probe_radius,
     except:
         h = thickness
 
-    #h = 80
+    h = 80
 
     logger.info('Thickness: %.1f nm' % h)
+    
+    test_passed = run_diagnostic_test(
+        data=data_shift, 
+        h=h, 
+        r_pump=r_pump, 
+        r_probe=r_probe, 
+        film_thickness=film_thickness, 
+        frequency=frequency, 
+        initial_guess=initial_guess
+    )
+    if not test_passed:
+        logger.error("Diagnostic test failed. Exiting script before starting Monaco.")
+        return
 
     fcns = {
         'run'           : aluminium_nitride_run,
@@ -72,21 +84,21 @@ def main(input_filepath, pump_radius, probe_radius,
     }
     
     sim = mc.Sim(name = prefix, ndraws = num_iter, fcns = fcns,
-                 singlethreaded = False, verbose = False,
-                 firstcaseismedian = True, resultsdir = './montecarlo-cases/%s/' % prefix,
+                 singlethreaded = True, verbose = True,
+                 firstcaseismedian = True, resultsdir = '../montecarlo-cases/%s/' % prefix,
                  savesimdata = True, savecasedata = True)
     
     sim.addInVar(name = 'h_Al', dist = norm, distkwargs = {'loc' : h, 'scale' : 1})
-    sim.addInVar(name = 'phase', dist = norm, distkwargs = {'loc' : data.phase_sol, 'scale' : data.del_phase/2})
+    sim.addInVar(name = 'phase', dist = norm, distkwargs = {'loc' : phase_sol, 'scale' : del_phase/2})
     sim.addInVar(name = 'C_Al', dist = norm, distkwargs = {'loc' : 2.42, 'scale' : 0.024})
-    sim.addInVar(name = 'C_AlN', dist = norm, distkwargs = {'loc' : 2.7, 'scale' : 0.027})
+    sim.addInVar(name = 'C_AlN', dist = norm, distkwargs = {'loc' : 1.938, 'scale' : 0.019})
     sim.addInVar(name = 'C_Si', dist = norm, distkwargs = {'loc' : 1.6, 'scale' : 0.016})
     sim.addInVar(name = 'r_pump', dist = norm, distkwargs = {'loc' : r_pump, 'scale' : r_pump/10})
     sim.addConstVal(name = 'r_probe', val = r_probe)
     sim.addConstVal(name = 'h_AlN', val = film_thickness)
     sim.addConstVal(name = 'frequency', val = frequency)
     sim.addConstVal(name = 'data', val = data)
-    sim.addConstVal(name = 'k_AlN', val = initial_guess)
+    sim.addConstVal(name = 'k_AlN_init', val = initial_guess)
 
     sim.runSim()
 
@@ -136,6 +148,77 @@ def main(input_filepath, pump_radius, probe_radius,
     var_G_Al = sim.outvars['G_Al_AlN'].stats().variance
     logger.info('Standard deviation (G_Al_AlN): %.2f' % np.sqrt(var_G_Al))
 
+def run_diagnostic_test(data, h, r_pump, r_probe, film_thickness, frequency, initial_guess):
+    """
+    Manually runs a single preprocessing and fitting step to test the Bidirectional GPU module,
+    bypassing Monaco's multiprocessing/parallel wrappers to expose the exact error.
+    """
+    print("\n" + "="*50)
+    print("      STARTING BIDIRECTIONAL DIAGNOSTIC TEST")
+    print("="*50)
+
+    # We mock both 'case.invals["name"]' and 'case.invals["name"].val' to prevent attribute errors
+    class ValMock:
+        def __init__(self, value):
+            self.val = value
+        def __float__(self):
+            return float(self.val)
+        def __repr__(self):
+            return str(self.val)
+
+    class MockCase:
+        def __init__(self):
+            self.invals = {
+                'h_Al': ValMock(h),
+                'phase': ValMock(0),
+                'C_Al': ValMock(2.42),
+                'C_Si': ValMock(1.6),
+                'C_AlN': ValMock(1.938),
+                'r_pump': ValMock(r_pump)
+            }
+            self.constvals = {
+                'h_AlN': film_thickness,
+                'r_probe': r_probe,
+                'frequency': frequency,
+                'data': data,
+                'k_AlN_init': initial_guess
+            }
+
+    try:
+        print("1. Constructing Mock Case...")
+        case = MockCase()
+        
+        print("2. Calling `aluminium_nitride_preprocess`...")
+        bidirectional_obj = aluminium_nitride_preprocess(case)
+        print("   [SUCCESS] Preprocessing completed.")
+        print(f"   [INFO] Created Object: {bidirectional_obj}")
+
+        print("3. Checking System & Sample Parameters...")
+        print(f"   [INFO] Pump Radius: {r_pump} m, Probe Radius: {r_probe} m")
+        print(f"   [INFO] Sample Thickenss Array: {np.array([h, 1, film_thickness, 1, 1e6]) * 1e-9}")
+
+        print("4. Calling `aluminium_nitride_run` (GPU Solver)...")
+        # This executes the actual Nelder-Mead optimization
+        results = aluminium_nitride_run(bidirectional_obj)
+        print("   [SUCCESS] Solver execution completed.")
+        print(f"   [RESULT] G_Al_AlN: {results[0]:.3e}")
+        print(f"   [RESULT] k_AlN:    {results[1]:.3f}")
+        print(f"   [RESULT] G_AlN_Si: {results[2]:.3e}")
+        print(f"   [RESULT] RMSE:     {results[3]:.5f}")
+        print("="*50)
+        print("   DIAGNOSTIC TEST PASSED: Bidirectional GPU is working perfectly!")
+        print("="*50 + "\n")
+        return True
+
+    except Exception as e:
+        print("\n" + "!"*50)
+        print("   DIAGNOSTIC TEST FAILED!")
+        print("!"*50)
+        import traceback
+        traceback.print_exc()
+        print("="*50 + "\n")
+        return False
+
 def aluminium_nitride_preprocess(case):
     h_Al        = case.invals['h_Al'].val
     phase       = case.invals['phase'].val
@@ -147,14 +230,14 @@ def aluminium_nitride_preprocess(case):
     r_probe     = case.constvals['r_probe']
     frequency   = case.constvals['frequency']
     data        = case.constvals['data']
-    k_AlN       = case.constvals['k_AlN']
+    k_AlN       = case.constvals['k_AlN_init']
     
     SystemParameters = bidirectional.SysParam(
         r_pump, r_probe, P_pump = 15e-3, P_probe = 5e-3
     )
 
     SampleParameters = bidirectional.DutParam(
-        Lambda  = np.array([237, 0.15, k_AlN, 0.2, 140]),
+        Lambda  = np.array([237, 0.15, k_AlN, 0.15, 140]),
         Label   = ['Al', 'Al/AlN', 'AlN', 'AlN/Si', 'Si'],
         Layer   = [True, False, True, False, True],
         C       = np.array([C_Al, 0.1, C_AlN, 0.1, C_Si]) * 1e6,
@@ -162,12 +245,13 @@ def aluminium_nitride_preprocess(case):
     )
 
     data_shift = data.phase_shift(phase)
+    
     Bidirectional = bidirectional.Bidirectional(SystemParameters)
     Bidirectional.set_parameters(
         i_Lambda    = np.array([1, 2, 3]),
         i_C         = np.array([]),
         i_h         = np.array([]),
-        tdelay_min  = 60e-12,
+        tdelay_min  = 100e-12,
         tdelay_max  = 3500e-12
     )
     Bidirectional.set_sample_parameters(SampleParameters)
@@ -191,7 +275,8 @@ def aluminium_nitride_postprocess(case, G_Al_AlN, k_AlN, G_AlN_Si, RMSE):
     case.addOutVal(name = 'G_Al_AlN', val = G_Al_AlN)
     case.addOutVal(name = 'k_AlN', val = k_AlN)
     case.addOutVal(name = 'G_AlN_Si', val = G_AlN_Si)
-
+    case.addOutVal(name = 'RMSE', val = RMSE)
+    
 if __name__ == '__main__':
     log_fmt = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     logging.basicConfig(level=logging.INFO, format=log_fmt)

@@ -23,7 +23,7 @@ module load mamba
 module load triton/2024.1-gcc cuda/12.2.1
 
 # Activate the python environment
-source activate TDTR-Analysis
+source activate montecarlo_tdtr
 
 # Store the file name
 file_name="${1##*/}"
