@@ -52,7 +52,7 @@ class TDTR:
                      label = 'in-phase voltage', ax = ax)
         sns.lineplot(self.df, x = 'tdelay', y = 'Vout',
                      label = 'out-of-phase voltage', ax = ax)
-        ax.set_ylabel('Voltage [$\mu$V]')
+        ax.set_ylabel('Voltage [µV]')
         ax.set_xlabel('tdelay [ps]')
         if t_min is not None and t_max is not None:
             ax.set_xlim([t_min * 1e12, t_max * 1e12])
