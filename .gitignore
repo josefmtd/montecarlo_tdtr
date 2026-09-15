@@ -2,6 +2,11 @@
 .conda_envs/
 .conda_pkgs/
 
+# MonteCarlo and outputs
+/out/
+*.mccase
+*.mcsim
+
 # Data
 /data/
 
