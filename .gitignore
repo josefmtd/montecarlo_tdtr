@@ -1,5 +1,6 @@
 # Conda envs
 .conda_envs/
+.conda_pkgs/
 
 # Data
 /data/
